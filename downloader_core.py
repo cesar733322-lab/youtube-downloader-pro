@@ -37,23 +37,13 @@ YTDLP_EXTRACTOR_ARGS = {
 YTDLP_JS_RUNTIMES = {'deno': {}, 'node': {}}
 
 def get_common_ydl_opts() -> Dict[str, Any]:
-    """Retorna opciones globales para yt-dlp, incluyendo extractor android y cookies si existen."""
-    opts: Dict[str, Any] = {
+    """Retorna opciones globales para yt-dlp usando el cliente Android para evadir bloqueos de centros de datos."""
+    return {
         'extractor_args': YTDLP_EXTRACTOR_ARGS,
         'js_runtimes': YTDLP_JS_RUNTIMES,
         'quiet': True,
         'no_warnings': True,
     }
-    cookie_candidates = [
-        "cookies.txt",
-        "/app/cookies.txt",
-        os.path.join(os.path.dirname(__file__), "cookies.txt"),
-    ]
-    for c in cookie_candidates:
-        if os.path.isfile(c) and os.path.getsize(c) > 0:
-            opts['cookiefile'] = c
-            break
-    return opts
 
 class DownloadCancelledError(Exception):
     """Excepción lanzada cuando el usuario cancela la descarga."""
@@ -146,6 +136,24 @@ def get_video_preview_info(url_or_id: str) -> Dict[str, Any]:
     url = url_or_id.strip()
     vid_id = extract_video_id(url)
     default_thumb = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg" if vid_id else ""
+
+    if vid_id:
+        try:
+            oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid_id}&format=json"
+            req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                return {
+                    "id": vid_id,
+                    "url": f"https://www.youtube.com/watch?v={vid_id}",
+                    "title": data.get("title") or f"Video YouTube ({vid_id})",
+                    "channel": data.get("author_name") or "YouTube",
+                    "duration": 210,
+                    "duration_str": "--:--",
+                    "thumbnail_url": data.get("thumbnail_url") or default_thumb
+                }
+        except Exception:
+            pass
 
     if not url.startswith("http://") and not url.startswith("https://"):
         if vid_id:
