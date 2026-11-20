@@ -32,6 +32,24 @@ import yt_dlp
 YTDLP_EXTRACTOR_ARGS = {}
 YTDLP_JS_RUNTIMES = {'deno': {}, 'node': {}}
 
+def get_common_ydl_opts() -> Dict[str, Any]:
+    """Retorna opciones globales para yt-dlp, incluyendo cookies si existen."""
+    opts: Dict[str, Any] = {
+        'js_runtimes': YTDLP_JS_RUNTIMES,
+        'quiet': True,
+        'no_warnings': True,
+    }
+    cookie_candidates = [
+        "cookies.txt",
+        "/app/cookies.txt",
+        os.path.join(os.path.dirname(__file__), "cookies.txt"),
+    ]
+    for c in cookie_candidates:
+        if os.path.isfile(c) and os.path.getsize(c) > 0:
+            opts['cookiefile'] = c
+            break
+    return opts
+
 class DownloadCancelledError(Exception):
     """Excepción lanzada cuando el usuario cancela la descarga."""
     pass
@@ -129,11 +147,9 @@ def get_video_preview_info(url_or_id: str) -> Dict[str, Any]:
             url = f"https://www.youtube.com/watch?v={vid_id}"
 
     ydl_opts = {
+        **get_common_ydl_opts(),
         'skip_download': True,
         'extract_flat': True,
-        'js_runtimes': YTDLP_JS_RUNTIMES,
-        'quiet': True,
-        'no_warnings': True,
         'ignoreerrors': True
     }
 
@@ -175,11 +191,9 @@ def get_video_preview_info(url_or_id: str) -> Dict[str, Any]:
 
 def extract_playlist_info(url_or_playlist: str) -> Dict[str, Any]:
     ydl_opts = {
+        **get_common_ydl_opts(),
         'extract_flat': 'in_playlist',
         'skip_download': True,
-        'js_runtimes': YTDLP_JS_RUNTIMES,
-        'quiet': True,
-        'no_warnings': True,
         'ignoreerrors': True
     }
 
@@ -286,9 +300,9 @@ def download_audio(
             progress_hook(d)
 
     ydl_opts = {
+        **get_common_ydl_opts(),
         'format': 'bestaudio/best',
         'outtmpl': outtmpl,
-        'js_runtimes': YTDLP_JS_RUNTIMES,
         'windowsfilenames': True,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -296,8 +310,6 @@ def download_audio(
             'preferredquality': str(bitrate),
         }],
         'progress_hooks': [internal_hook],
-        'quiet': True,
-        'no_warnings': True,
         'noplaylist': True
     }
 
@@ -352,14 +364,12 @@ def download_video(
 
     format_str = _get_video_format_string(quality)
     ydl_opts = {
+        **get_common_ydl_opts(),
         'format': format_str,
         'outtmpl': outtmpl,
-        'js_runtimes': YTDLP_JS_RUNTIMES,
         'merge_output_format': 'mp4',
         'windowsfilenames': True,
         'progress_hooks': [internal_hook],
-        'quiet': True,
-        'no_warnings': True,
         'noplaylist': True
     }
 
@@ -580,17 +590,15 @@ def download_and_merge_audios(
             part_outtmpl = os.path.join(temp_dir, part_name)
 
             ydl_opts = {
+                **get_common_ydl_opts(),
                 'format': 'bestaudio/best',
                 'outtmpl': part_outtmpl,
-                'js_runtimes': YTDLP_JS_RUNTIMES,
                 'windowsfilenames': True,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
                     'preferredquality': str(bitrate),
                 }],
-                'quiet': True,
-                'no_warnings': True,
                 'noplaylist': True
             }
 
@@ -677,12 +685,10 @@ def download_and_merge_videos(
 
             raw_vid_outtmpl = os.path.join(temp_dir, f"raw_{idx:04d}.%(ext)s")
             ydl_opts = {
+                **get_common_ydl_opts(),
                 'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
                 'outtmpl': raw_vid_outtmpl,
-                'js_runtimes': YTDLP_JS_RUNTIMES,
                 'windowsfilenames': True,
-                'quiet': True,
-                'no_warnings': True,
                 'noplaylist': True
             }
 
