@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>YouTube Downloader Pro - MP3 & Video</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Estilos personalizados y efectos de desenfoque/glassmorphism */
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header Superior -->
+  <header class="glass-card sticky top-0 z-50 border-b border-slate-800 px-4 py-3 shadow-lg">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🎬</span>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">
+            YouTube Downloader Pro
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">MP3, Video MP4, Playlists sin límite y Unión de Archivos</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800">
+          ● En línea
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal -->
+  <main class="max-w-4xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Configuración Rápida: Formato y Calidad -->
+    <div class="glass-card rounded-2xl p-4 shadow-md flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <span class="text-sm font-semibold text-slate-300">Formato:</span>
+        <div class="inline-flex p-1 bg-slate-900 rounded-xl border border-slate-700">
+          <button id="btn-fmt-mp3" onclick="setFormat('mp3')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow">
+            🎵 Audio (MP3)
+          </button>
+          <button id="btn-fmt-mp4" onclick="setFormat('mp4')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">
+            🎬 Video (MP4)
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <span class="text-sm font-semibold text-slate-300">Calidad:</span>
+        <select id="select-quality" onchange="onQualityChanged()" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-indigo-500">
+          <option value="320">320 kbps (Máxima)</option>
+          <option value="256">256 kbps (Muy alta)</option>
+          <option value="192" selected>192 kbps (Recomendada)</option>
+          <option value="128">128 kbps (Ligera)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Pestañas de Navegación -->
+    <div class="flex border-b border-slate-800 space-x-2">
+      <button id="tab-btn-links" onclick="switchTab('links')" class="px-4 py-2.5 font-bold text-sm border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-2 transition">
+        <span>🔗 Enlaces / Lista</span>
+      </button>
+      <button id="tab-btn-playlist" onclick="switchTab('playlist')" class="px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 transition">
+        <span>📑 Playlist sin límite</span>
+      </button>
+    </div>
+
+    <!-- PESTAÑA 1: ENLACES / LISTA -->
+    <section id="tab-links" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Entrada de URLs -->
+        <div class="md:col-span-2 space-y-3">
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Enlaces de YouTube (uno por línea):
+          </label>
+          <textarea id="input-urls" rows="6" placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/..." class="w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 custom-scroll"></textarea>
+          
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="inline-flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chk-zip-links" checked class="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0">
+              <span>Empaquetar en .ZIP si son varios</span>
+            </label>
+            <button onclick="fetchPreviewFromInput()" class="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+              👁️ Previsualizar portada
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjeta de Portada y Peso Estimado -->
+        <div class="glass-card rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-3">
+          <div id="preview-thumb-box" class="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-800 relative">
+            <img id="preview-img" src="" alt="Portada" class="w-full h-full object-cover hidden">
+            <span id="preview-placeholder" class="text-xs text-slate-500 px-4">
+              Pega un enlace y pulsa "Previsualizar" para ver la portada sin descargar
+            </span>
+            <div id="preview-spinner" class="spinner hidden"></div>
+          </div>
+          <div class="w-full">
+            <h4 id="preview-title" class="text-xs font-bold text-slate-200 truncate">Título del video</h4>
+            <p id="preview-channel" class="text-[11px] text-slate-400">Canal / Creador</p>
+            <span id="preview-size-badge" class="inline-block mt-2 px-2.5 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs font-bold rounded-lg">
+              📦 Peso: --
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de Descarga Enlaces -->
+      <div class="pt-2">
+        <button id="btn-download-links" onclick="startDownloadLinks()" class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-lg transition transform active:scale-[0.99] flex items-center justify-center space-x-2">
+          <span>⬇️ Descargar Archivos</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- PESTAÑA 2: PLAYLIST SIN LÍMITE -->
+    <section id="tab-playlist" class="space-y-4 hidden">
+      <!-- Barra URL Playlist -->
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input type="text" id="input-playlist-url" placeholder="Pega el enlace de la playlist (ej. https://www.youtube.com/playlist?list=...)" class="flex-1 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        <button onclick="fetchPlaylist()" id="btn-fetch-pl" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow transition flex items-center justify-center space-x-2">
+          <span>🔍 Cargar Playlist</span>
+        </button>
+      </div>
+
+      <!-- Barra de Estado y Filtros de Playlist -->
+      <div class="glass-card rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center space-x-2">
+          <span id="pl-title-badge" class="font-bold text-slate-300 truncate max-w-[200px] sm:max-w-xs">Sin playlist</span>
+          <span id="pl-size-total-badge" class="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-800 rounded font-semibold">
+            📦 Peso est.: 0 MB
+          </span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="selectAllVideos(true)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700">✓ Todo</button>
+          <button onclick="selectAllVideos(false)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700">✗ Nada</button>
+          <input type="text" id="filter-playlist" oninput="filterVideos(this.value)" placeholder="Buscar en lista..." class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200 w-32 sm:w-44 focus:outline-none">
+        </div>
+      </div>
+
+      <!-- Lista Desplazable de Videos -->
+      <div id="playlist-container" class="glass-card rounded-2xl p-2 max-h-96 overflow-y-auto space-y-2 custom-scroll">
+        <div id="pl-empty-msg" class="py-12 text-center text-xs text-slate-500">
+          Pega el enlace de la playlist arriba y presiona "Cargar Playlist".
+        </div>
+      </div>
+
+      <!-- Botones de Acción de Playlist -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+        <button onclick="downloadPlaylistZip()" class="py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition">
+          ⬇️ Descargar en .ZIP
+        </button>
+        <button onclick="mergePlaylistAudio()" class="py-3 bg-purple-600 hover:bg-purple-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition">
+          🎵 Unir en 1 Audio MP3
+        </button>
+        <button onclick="mergePlaylistVideo()" class="py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow transition">
+          🎬 Unir en 1 Video MP4
+        </button>
+      </div>
+    </section>
+
+    <!-- Barra de Progreso y Notificación -->
+    <div id="progress-box" class="glass-card rounded-xl p-4 space-y-2 hidden">
+      <div class="flex items-center justify-between text-xs">
+        <span id="progress-status" class="font-bold text-slate-300">Descargando...</span>
+        <span id="progress-percentage" class="text-indigo-400 font-semibold">0%</span>
+      </div>
+      <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+        <div id="progress-bar-fill" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full w-0 transition-all duration-300"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="glass-card border-t border-slate-800 p-4 text-center text-xs text-slate-500 mt-6">
+    <p>YouTube Downloader Pro • Compatible con móviles, tablets y PC • Sin límite de videos</p>
+  </footer>
+
+  <!-- Lógica JavaScript del Cliente -->
+  <script>
+    let currentFormat = 'mp3';
+    let currentPlaylist = [];
+    let currentVideoPreview = null;
+
+    function setFormat(fmt) {
+      currentFormat = fmt;
+      const btnMp3 = document.getElementById('btn-fmt-mp3');
+      const btnMp4 = document.getElementById('btn-fmt-mp4');
+      const selQ = document.getElementById('select-quality');
+
+      if (fmt === 'mp3') {
+        btnMp3.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow";
+        btnMp4.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+        selQ.innerHTML = `
+          <option value="320">320 kbps (Máxima)</option>
+          <option value="256">256 kbps (Muy alta)</option>
+          <option value="192" selected>192 kbps (Recomendada)</option>
+          <option value="128">128 kbps (Ligera)</option>
+        `;
+      } else {
+        btnMp4.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow";
+        btnMp3.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+        selQ.innerHTML = `
+          <option value="max" selected>Máxima disponible</option>
+          <option value="1080p">1080p (Full HD)</option>
+          <option value="720p">720p (HD)</option>
+          <option value="480p">480p (SD)</option>
+          <option value="360p">360p (Ligero)</option>
+        `;
+      }
+      updatePreviewSizeBadge();
+      updatePlaylistTotalSize();
+    }
+
+    function onQualityChanged() {
+      updatePreviewSizeBadge();
+      updatePlaylistTotalSize();
+    }
+
+    function switchTab(tab) {
+      const tabLinks = document.getElementById('tab-links');
+      const tabPlaylist = document.getElementById('tab-playlist');
+      const btnLinks = document.getElementById('tab-btn-links');
+      const btnPlaylist = document.getElementById('tab-btn-playlist');
+
+      if (tab === 'links') {
+        tabLinks.classList.remove('hidden');
+        tabPlaylist.classList.add('hidden');
+        btnLinks.className = "px-4 py-2.5 font-bold text-sm border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-2 transition";
+        btnPlaylist.className = "px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 transition";
+      } else {
+        tabPlaylist.classList.remove('hidden');
+        tabLinks.classList.add('hidden');
+        btnPlaylist.className = "px-4 py-2.5 font-bold text-sm border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-2 transition";
+        btnLinks.className = "px-4 py-2.5 font-medium text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 transition";
+      }
+    }
+
+    function calcSize(durationSec, fmt, quality) {
+      let kbps = 192;
+      const q = (quality || '').toLowerCase();
+      if (fmt === 'mp3') {
+        if (q.includes('320')) kbps = 320;
+        else if (q.includes('256')) kbps = 256;
+        else if (q.includes('128')) kbps = 128;
+        else kbps = 192;
+      } else {
+        if (q.includes('360')) kbps = 650;
+        else if (q.includes('480')) kbps = 1250;
+        else if (q.includes('720')) kbps = 2600;
+        else if (q.includes('1080')) kbps = 5200;
+        else kbps = 8500;
+      }
+      const bytes = (durationSec || 210) * (kbps * 1000 / 8);
+      const mb = bytes / (1024 * 1024);
+      return mb >= 1024 ? `~${(mb / 1024).toFixed(2)} GB` : `~${mb.toFixed(1)} MB`;
+    }
+
+    async function fetchPreviewFromInput() {
+      const text = document.getElementById('input-urls').value.trim();
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.startsWith('http') || l.includes('youtu'));
+      if (!lines.length) {
+        alert('Por favor ingresa un enlace de YouTube válido.');
+        return;
+      }
+
+      const imgEl = document.getElementById('preview-img');
+      const placeholder = document.getElementById('preview-placeholder');
+      const spinner = document.getElementById('preview-spinner');
+      
+      placeholder.classList.add('hidden');
+      spinner.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: lines[0] })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        currentVideoPreview = data;
+        imgEl.src = data.thumbnail_url;
+        imgEl.classList.remove('hidden');
+        spinner.classList.add('hidden');
+
+        document.getElementById('preview-title').innerText = data.title;
+        document.getElementById('preview-channel').innerText = `${data.channel} • ${data.duration_str}`;
+        updatePreviewSizeBadge();
+      } catch (err) {
+        spinner.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        placeholder.innerText = 'No se pudo cargar la vista previa';
+      }
+    }
+
+    function updatePreviewSizeBadge() {
+      if (!currentVideoPreview) return;
+      const q = document.getElementById('select-quality').value;
+      const sizeStr = calcSize(currentVideoPreview.duration, currentFormat, q);
+      document.getElementById('preview-size-badge').innerText = `📦 Peso est.: ${sizeStr}`;
+    }
+
+    async function fetchPlaylist() {
+      const url = document.getElementById('input-playlist-url').value.trim();
+      if (!url) {
+        alert('Ingresa el enlace de una playlist');
+        return;
+      }
+
+      const btn = document.getElementById('btn-fetch-pl');
+      btn.innerText = '⏳ Cargando...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/playlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        currentPlaylist = data.entries || [];
+        document.getElementById('pl-title-badge').innerText = `${data.title} (${currentPlaylist.length})`;
+
+        renderPlaylistItems();
+      } catch (err) {
+        alert('Error al cargar la playlist: ' + err.message);
+      } finally {
+        btn.innerText = '🔍 Cargar Playlist';
+        btn.disabled = false;
+      }
+    }
+
+    function renderPlaylistItems() {
+      const container = document.getElementById('playlist-container');
+      container.innerHTML = '';
+
+      if (!currentPlaylist.length) {
+        container.innerHTML = '<div class="py-8 text-center text-xs text-slate-500">No se encontraron videos.</div>';
+        return;
+      }
+
+      currentPlaylist.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = "flex items-center space-x-3 p-2 bg-slate-900/60 hover:bg-slate-900 rounded-xl border border-slate-800/80 transition";
+        row.dataset.title = (item.title || '').toLowerCase();
+
+        row.innerHTML = `
+          <input type="checkbox" checked id="pl-item-${idx}" onchange="updatePlaylistTotalSize()" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0">
+          <img src="${item.thumbnail_url || 'https://via.placeholder.com/80x45'}" alt="" class="w-16 h-9 object-cover rounded-lg bg-slate-800 shrink-0">
+          <div class="flex-1 min-w-0">
+            <h5 class="text-xs font-bold text-slate-200 truncate">${idx + 1}. ${item.title}</h5>
+            <p class="text-[11px] text-slate-400">${item.channel} • ⏱ ${item.duration_str}</p>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      updatePlaylistTotalSize();
+    }
+
+    function selectAllVideos(checked) {
+      currentPlaylist.forEach((_, idx) => {
+        const el = document.getElementById(`pl-item-${idx}`);
+        if (el) el.checked = checked;
+      });
+      updatePlaylistTotalSize();
+    }
+
+    function filterVideos(q) {
+      const term = (q || '').trim().toLowerCase();
+      const rows = document.querySelectorAll('#playlist-container > div');
+      rows.forEach(r => {
+        if (!term || r.dataset.title.includes(term)) {
+          r.classList.remove('hidden');
+        } else {
+          r.classList.add('hidden');
+        }
+      });
+    }
+
+    function updatePlaylistTotalSize() {
+      let totalSec = 0;
+      let count = 0;
+      currentPlaylist.forEach((item, idx) => {
+        const el = document.getElementById(`pl-item-${idx}`);
+        if (el && el.checked) {
+          totalSec += (item.duration || 210);
+          count++;
+        }
+      });
+
+      const q = document.getElementById('select-quality').value;
+      const sizeStr = calcSize(totalSec, currentFormat, q);
+      document.getElementById('pl-size-total-badge').innerText = `📦 Total est. (${count}): ${sizeStr}`;
+    }
+
+    function showProgress(status, pct) {
+      const box = document.getElementById('progress-box');
+      box.classList.remove('hidden');
+      document.getElementById('progress-status').innerText = status;
+      document.getElementById('progress-percentage').innerText = `${pct}%`;
+      document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+    }
+
+    async function startDownloadLinks() {
+      const text = document.getElementById('input-urls').value.trim();
+      const urls = text.split('\n').map(l => l.trim()).filter(l => l.startsWith('http') || l.includes('youtu'));
+      if (!urls.length) {
+        alert('Por favor ingresa al menos un enlace');
+        return;
+      }
+
+      const asZip = document.getElementById('chk-zip-links').checked;
+      const q = document.getElementById('select-quality').value;
+      showProgress('Iniciando descarga en el servidor...', 20);
+
+      try {
+        const response = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls, format: currentFormat, quality: q, asZip })
+        });
+        if (!response.ok) throw new Error('Error al procesar descarga');
+
+        showProgress('Descargando archivo...', 90);
+        const blob = await response.blob();
+        downloadBlob(blob, `Descarga_${Date.now()}.${asZip ? 'zip' : currentFormat}`);
+        showProgress('¡Completado!', 100);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function getSelectedPlaylistItems() {
+      const items = [];
+      currentPlaylist.forEach((item, idx) => {
+        const el = document.getElementById(`pl-item-${idx}`);
+        if (el && el.checked) items.push(item);
+      });
+      return items;
+    }
+
+    async function downloadPlaylistZip() {
+      const selected = getSelectedPlaylistItems();
+      if (!selected.length) return alert('Selecciona al menos un video');
+      const q = document.getElementById('select-quality').value;
+
+      showProgress('Empaquetando en ZIP...', 30);
+      try {
+        const res = await fetch('/api/download/zip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: selected, format: currentFormat, quality: q })
+        });
+        const blob = await res.blob();
+        downloadBlob(blob, `Playlist_${Date.now()}.zip`);
+        showProgress('¡ZIP Descargado!', 100);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function mergePlaylistAudio() {
+      const selected = getSelectedPlaylistItems();
+      if (!selected.length) return alert('Selecciona al menos un video');
+      showProgress('Uniendo audios en 1 solo MP3...', 40);
+
+      try {
+        const res = await fetch('/api/merge/audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: selected })
+        });
+        const blob = await res.blob();
+        downloadBlob(blob, `Audio_Completo_${Date.now()}.mp3`);
+        showProgress('¡Audio MP3 descargado!', 100);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function mergePlaylistVideo() {
+      const selected = getSelectedPlaylistItems();
+      if (!selected.length) return alert('Selecciona al menos un video');
+      showProgress('Uniendo videos en 1 solo MP4...', 40);
+
+      try {
+        const res = await fetch('/api/merge/video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: selected })
+        });
+        const blob = await res.blob();
+        downloadBlob(blob, `Video_Completo_${Date.now()}.mp4`);
+        showProgress('¡Video MP4 descargado!', 100);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

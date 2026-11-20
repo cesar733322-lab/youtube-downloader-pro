@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: youtube-downloader-pro
+    env: docker
+    plan: free
+    region: oregon
+    autoDeploy: true
