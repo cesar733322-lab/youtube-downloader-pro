@@ -2,9 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalar FFmpeg oficial y certificados SSL
+# Instalar FFmpeg, Node.js (para ejecutar JS de YouTube en la nube) y certificados SSL
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    nodejs \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

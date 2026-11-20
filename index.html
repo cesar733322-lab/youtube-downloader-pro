@@ -480,7 +480,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ urls, format: currentFormat, quality: q, asZip })
         });
-        if (!response.ok) throw new Error('Error al procesar descarga');
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error al procesar descarga en el servidor');
+        }
 
         showProgress('Descargando archivo...', 90);
         const blob = await response.blob();
@@ -512,6 +515,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items: selected, format: currentFormat, quality: q })
         });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error al generar ZIP');
+        }
         const blob = await res.blob();
         downloadBlob(blob, `Playlist_${Date.now()}.zip`);
         showProgress('¡ZIP Descargado!', 100);

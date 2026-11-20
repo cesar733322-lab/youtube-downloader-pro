@@ -2,6 +2,7 @@
 Motor de descarga de YouTube a MP3 y Video (MP4) utilizando yt-dlp y ffmpeg.
 Soporta:
 - Extracción de playlists completas sin límite de videos.
+- Compatibilidad para servidores en la nube (Render, Docker) evitando bloqueos de YouTube.
 - Estimación precisa de tamaño (MB / GB) en tiempo real para MP3 y MP4.
 - Descarga de audio (MP3 con bitrates: 128, 192, 256, 320 kbps).
 - Descarga de video (MP4 con calidades: 360p, 480p, 720p, 1080p, Máxima disponible).
@@ -26,6 +27,14 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Callable, Any
 
 import yt_dlp
+
+# Configuración de clientes para evitar bloqueos y "Failed to extract player response" en la nube
+YTDLP_EXTRACTOR_ARGS = {
+    'youtube': {
+        'player_client': ['android', 'ios', 'mweb', 'web'],
+        'player_skip': ['webpage', 'configs']
+    }
+}
 
 class DownloadCancelledError(Exception):
     """Excepción lanzada cuando el usuario cancela la descarga."""
@@ -66,33 +75,23 @@ def estimate_size(duration_sec: Optional[int | float], format_type: str = "mp3",
     el formato elegido (MP3 o MP4) y la calidad seleccionada.
     """
     if not duration_sec or duration_sec <= 0:
-        duration_sec = 210  # 3.5 minutos promedio por defecto si se desconoce
+        duration_sec = 210
 
     fmt = format_type.lower()
     q = str(quality).lower()
 
     if "mp3" in fmt or "audio" in fmt:
         kbps = 192
-        if "320" in q:
-            kbps = 320
-        elif "256" in q:
-            kbps = 256
-        elif "128" in q:
-            kbps = 128
+        if "320" in q: kbps = 320
+        elif "256" in q: kbps = 256
+        elif "128" in q: kbps = 128
         bytes_total = duration_sec * (kbps * 1000 / 8)
     else:
-        # Video MP4
-        if "360" in q:
-            kbps = 650
-        elif "480" in q:
-            kbps = 1250
-        elif "720" in q:
-            kbps = 2600
-        elif "1080" in q:
-            kbps = 5200
-        else:
-            # Máxima calidad (1440p, 4K o 1080p high bitrate)
-            kbps = 8500
+        if "360" in q: kbps = 650
+        elif "480" in q: kbps = 1250
+        elif "720" in q: kbps = 2600
+        elif "1080" in q: kbps = 5200
+        else: kbps = 8500
         bytes_total = duration_sec * (kbps * 1000 / 8)
 
     mb = bytes_total / (1024 * 1024)
@@ -102,7 +101,6 @@ def estimate_size(duration_sec: Optional[int | float], format_type: str = "mp3",
 
 
 def estimate_items_size(items: List[Any], format_type: str = "mp3", quality: str = "192") -> Tuple[str, float]:
-    """Suma la duración de una lista de elementos y calcula el peso total estimado."""
     total_seconds = 0
     for item in items:
         if isinstance(item, dict):
@@ -114,7 +112,6 @@ def estimate_items_size(items: List[Any], format_type: str = "mp3", quality: str
 
 
 def fetch_image_bytes(url: str, timeout: int = 5) -> Optional[bytes]:
-    """Descarga los bytes de una imagen en memoria rápidamente."""
     try:
         req = urllib.request.Request(
             url,
@@ -127,10 +124,6 @@ def fetch_image_bytes(url: str, timeout: int = 5) -> Optional[bytes]:
 
 
 def get_video_preview_info(url_or_id: str) -> Dict[str, Any]:
-    """
-    Obtiene la información, duración y miniatura (portada) de un video de YouTube
-    en milisegundos SIN descargar el video.
-    """
     url = url_or_id.strip()
     vid_id = extract_video_id(url)
     default_thumb = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg" if vid_id else ""
@@ -142,6 +135,7 @@ def get_video_preview_info(url_or_id: str) -> Dict[str, Any]:
     ydl_opts = {
         'skip_download': True,
         'extract_flat': True,
+        'extractor_args': YTDLP_EXTRACTOR_ARGS,
         'quiet': True,
         'no_warnings': True,
         'ignoreerrors': True
@@ -184,13 +178,10 @@ def get_video_preview_info(url_or_id: str) -> Dict[str, Any]:
 
 
 def extract_playlist_info(url_or_playlist: str) -> Dict[str, Any]:
-    """
-    Extrae la información completa de una playlist o lista de videos de YouTube
-    utilizando 'extract_flat': 'in_playlist' para que sea instantáneo y SIN LÍMITE de videos.
-    """
     ydl_opts = {
         'extract_flat': 'in_playlist',
         'skip_download': True,
+        'extractor_args': YTDLP_EXTRACTOR_ARGS,
         'quiet': True,
         'no_warnings': True,
         'ignoreerrors': True
@@ -266,7 +257,6 @@ def extract_playlist_info(url_or_playlist: str) -> Dict[str, Any]:
 
 
 def _get_video_format_string(quality: str) -> str:
-    """Devuelve la regla de formato para yt-dlp según la resolución deseada."""
     q = quality.lower()
     if "360" in q:
         return 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best'
@@ -277,7 +267,6 @@ def _get_video_format_string(quality: str) -> str:
     elif "1080" in q:
         return 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best'
     else:
-        # Máxima calidad disponible
         return 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
 
 
@@ -288,7 +277,6 @@ def download_audio(
     progress_hook: Optional[Callable[[Dict[str, Any]], None]] = None,
     cancel_event: Optional[threading.Event] = None
 ) -> str:
-    """Descarga audio en MP3."""
     if cancel_event and cancel_event.is_set():
         raise DownloadCancelledError("Descarga cancelada.")
 
@@ -304,6 +292,7 @@ def download_audio(
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': outtmpl,
+        'extractor_args': YTDLP_EXTRACTOR_ARGS,
         'windowsfilenames': True,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -353,7 +342,6 @@ def download_video(
     progress_hook: Optional[Callable[[Dict[str, Any]], None]] = None,
     cancel_event: Optional[threading.Event] = None
 ) -> str:
-    """Descarga video en MP4 con la calidad seleccionada."""
     if cancel_event and cancel_event.is_set():
         raise DownloadCancelledError("Descarga cancelada.")
 
@@ -370,6 +358,7 @@ def download_video(
     ydl_opts = {
         'format': format_str,
         'outtmpl': outtmpl,
+        'extractor_args': YTDLP_EXTRACTOR_ARGS,
         'merge_output_format': 'mp4',
         'windowsfilenames': True,
         'progress_hooks': [internal_hook],
@@ -427,7 +416,6 @@ def download_batch_files(
     progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
     cancel_event: Optional[threading.Event] = None
 ) -> Tuple[List[str], List[Tuple[str, str]]]:
-    """Descarga por lote tanto audios MP3 como videos MP4."""
     os.makedirs(output_dir, exist_ok=True)
     total = len(items)
     downloaded_files = []
@@ -494,7 +482,6 @@ def download_batch_files(
     return downloaded_files, errors
 
 
-# Alias retrocompatible
 download_batch = lambda items, output_dir, bitrate="192", max_workers=3, progress_callback=None, cancel_event=None: download_batch_files(
     items, output_dir, format_type="mp3", quality=bitrate, max_workers=max_workers, progress_callback=progress_callback, cancel_event=cancel_event
 )
@@ -506,15 +493,12 @@ def download_batch_and_zip(
     zip_filename: Optional[str] = None,
     format_type: str = "mp3",
     quality: str = "192",
-    bitrate: Optional[str] = None,  # retrocompatibilidad
+    bitrate: Optional[str] = None,
     max_workers: int = 3,
     progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
     cancel_event: Optional[threading.Event] = None,
     keep_individual: bool = False
 ) -> Tuple[str, List[str], List[Tuple[str, str]]]:
-    """
-    Descarga una lista de canciones o videos y las empaqueta en un archivo .ZIP.
-    """
     os.makedirs(output_dir, exist_ok=True)
     if bitrate:
         quality = bitrate
@@ -574,7 +558,6 @@ def download_and_merge_audios(
     progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
     cancel_event: Optional[threading.Event] = None
 ) -> Tuple[str, List[Tuple[str, str]]]:
-    """Une los audios en UN SOLO ARCHIVO MP3 continuo en el orden de la playlist."""
     os.makedirs(output_dir, exist_ok=True)
     if not output_filename:
         output_filename = f"Audio_Unido_{time.strftime('%Y%m%d_%H%M%S')}.mp3"
@@ -603,6 +586,7 @@ def download_and_merge_audios(
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'outtmpl': part_outtmpl,
+                'extractor_args': YTDLP_EXTRACTOR_ARGS,
                 'windowsfilenames': True,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
@@ -673,7 +657,6 @@ def download_and_merge_videos(
     progress_callback: Optional[Callable[[int, int, str, str], None]] = None,
     cancel_event: Optional[threading.Event] = None
 ) -> Tuple[str, List[Tuple[str, str]]]:
-    """Une los videos en UN SOLO ARCHIVO MP4 continuo en el orden de la playlist."""
     os.makedirs(output_dir, exist_ok=True)
     if not output_filename:
         output_filename = f"Video_Unido_{time.strftime('%Y%m%d_%H%M%S')}.mp4"
@@ -700,6 +683,7 @@ def download_and_merge_videos(
             ydl_opts = {
                 'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
                 'outtmpl': raw_vid_outtmpl,
+                'extractor_args': YTDLP_EXTRACTOR_ARGS,
                 'windowsfilenames': True,
                 'quiet': True,
                 'no_warnings': True,
