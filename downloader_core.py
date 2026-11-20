@@ -28,13 +28,18 @@ from typing import List, Dict, Tuple, Optional, Callable, Any
 
 import yt_dlp
 
-# Configuración de opciones para yt-dlp
-YTDLP_EXTRACTOR_ARGS = {}
+# Configuración de opciones para yt-dlp optimizadas para servidores en la nube (Render, AWS)
+YTDLP_EXTRACTOR_ARGS = {
+    'youtube': {
+        'player_client': ['android']
+    }
+}
 YTDLP_JS_RUNTIMES = {'deno': {}, 'node': {}}
 
 def get_common_ydl_opts() -> Dict[str, Any]:
-    """Retorna opciones globales para yt-dlp, incluyendo cookies si existen."""
+    """Retorna opciones globales para yt-dlp, incluyendo extractor android y cookies si existen."""
     opts: Dict[str, Any] = {
+        'extractor_args': YTDLP_EXTRACTOR_ARGS,
         'js_runtimes': YTDLP_JS_RUNTIMES,
         'quiet': True,
         'no_warnings': True,
@@ -269,15 +274,15 @@ def extract_playlist_info(url_or_playlist: str) -> Dict[str, Any]:
 def _get_video_format_string(quality: str) -> str:
     q = quality.lower()
     if "360" in q:
-        return 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best'
+        return 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/b[height<=360]/18/best'
     elif "480" in q:
-        return 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best'
+        return 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/b[height<=480]/18/best'
     elif "720" in q:
-        return 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best'
+        return 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/22/b[height<=720]/18/best'
     elif "1080" in q:
-        return 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best'
+        return 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/b[height<=1080]/18/best'
     else:
-        return 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
+        return 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/22/18/best'
 
 
 def download_audio(
@@ -301,7 +306,7 @@ def download_audio(
 
     ydl_opts = {
         **get_common_ydl_opts(),
-        'format': 'bestaudio/best',
+        'format': 'bestaudio/bestaudio[ext=m4a]/ba/b/18/best',
         'outtmpl': outtmpl,
         'windowsfilenames': True,
         'postprocessors': [{
@@ -591,7 +596,7 @@ def download_and_merge_audios(
 
             ydl_opts = {
                 **get_common_ydl_opts(),
-                'format': 'bestaudio/best',
+                'format': 'bestaudio/bestaudio[ext=m4a]/ba/b/18/best',
                 'outtmpl': part_outtmpl,
                 'windowsfilenames': True,
                 'postprocessors': [{
@@ -686,7 +691,7 @@ def download_and_merge_videos(
             raw_vid_outtmpl = os.path.join(temp_dir, f"raw_{idx:04d}.%(ext)s")
             ydl_opts = {
                 **get_common_ydl_opts(),
-                'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
+                'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/22/18/best',
                 'outtmpl': raw_vid_outtmpl,
                 'windowsfilenames': True,
                 'noplaylist': True
