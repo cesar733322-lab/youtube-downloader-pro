@@ -29,7 +29,7 @@ def get_local_ip():
 
 @app.route("/")
 def index():
-    return send_from_directory("web", "index.html")
+    return send_from_directory(".", "index.html")
 
 
 @app.route("/api/preview", methods=["POST"])
